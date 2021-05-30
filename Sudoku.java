@@ -1,3 +1,4 @@
+import java.lang.reflect.Type;
 import java.util.*;
 
 /*
@@ -51,10 +52,81 @@ public class Sudoku {
 	public static final int SIZE = 9;  // size of the whole 9x9 puzzle
 	public static final int PART = 3;  // size of each 3x3 part
 	public static final int MAX_SOLUTIONS = 100;
-	
+
+	private static int numRows = 9;
+	private static int numCols = 9;
+
+	private boolean solved; // false until we find the right solution
+	private long elapsedTime;
+	private static int [][] grid;
+	private int [][] firstSolution;
+	private int solNum;
+
+
+	public static class Spot implements Comparable<Spot>{
+		private int row, col;
+		//private int value;
+		private Spot (int row, int col){
+			this.row = row;
+			this.col = col;
+			//this.value = 0;
+		}
+		@Override
+		public int compareTo(Spot o){
+			return this.potentialValues().size() - o.potentialValues().size();
+		}
+
+		// changes value in grid
+		private void set(int value){
+			grid[row][col] = value;
+		}
+
+		private int getValue(){
+			return grid[row][col];
+		}
+
+		private boolean rowContains(int value){
+			for (int i = 0; i < numCols; i++){
+				if (grid[this.row][i] == value) return true;
+			}
+			return false;
+		}
+
+		private boolean columnContains(int value){
+			for (int i = 0; i < numRows; i++){
+				if (grid[i][this.col] == value) return true;
+			}
+			return false;
+		}
+
+		private boolean squareContains(int value){
+			int startRow = this.row / 3;
+			startRow *= 3;
+			int startCol = this.col / 3;
+			startCol *= 3;
+			for (int i = startRow; i < startRow + 3; i++){
+				for (int j = startCol; j < startCol + 3; j++){
+					if (grid[i][j] == value) return true;
+				}
+			}
+			return false;
+		}
+
+		private HashSet<Integer> potentialValues(){
+			HashSet<Integer> res = new HashSet<>();
+			for (int i = 1; i <= 9; i++){
+				if (!rowContains(i) && !columnContains(i) && !squareContains(i)){
+					res.add(i);
+				}
+			}
+			return res;
+		}
+	}
+
+
+
 	// Provided various static utility methods to
 	// convert data formats to int[][] grid.
-	
 	/**
 	 * Returns a 2-d grid parsed from strings, one string per row.
 	 * The "..." is a Java 5 feature that essentially
@@ -132,32 +204,92 @@ public class Sudoku {
 		System.out.println("elapsed:" + sudoku.getElapsed() + "ms");
 		System.out.println(sudoku.getSolutionText());
 	}
-	
-	
-	
 
 	/**
 	 * Sets up based on the given ints.
 	 */
 	public Sudoku(int[][] ints) {
-		// YOUR CODE HERE
+		solNum = 0;
+		grid = new int[ints.length][ints[0].length];
+		firstSolution = new int[ints.length][ints[0].length];
+		solved = false;
+		for (int i = 0; i < ints.length; i++){
+			System.arraycopy(ints[i], 0, grid[i], 0, ints[i].length);
+		}
+	}
+	public Sudoku(String text){
+		this(textToGrid(text));
+	}
+
+	private void saveFirstSolution(){
+		for (int i = 0; i < grid.length; i++){
+			System.arraycopy(grid[i], 0, firstSolution[i], 0, grid[0].length);
+		}
 	}
 	
-	
+	private void numSolutions(List<Spot> lst, int i){
+		if (solNum == MAX_SOLUTIONS) return;
+		if (i >= lst.size()) {
+			if (solNum == 0) saveFirstSolution();
+			solNum++;
+			solved = true;
+			return;
+		}
+		Spot curr = lst.get(i);
+		HashSet<Integer> variants = curr.potentialValues();
+		Iterator<Integer> it = variants.iterator();
+		int valueBefore = curr.getValue();
+		while(it.hasNext()){
+			curr.set(it.next());
+			numSolutions(lst, i + 1);
+		}
+		curr.set(valueBefore);
+	}
 	
 	/**
 	 * Solves the puzzle, invoking the underlying recursive search.
 	 */
 	public int solve() {
-		return 0; // YOUR CODE HERE
+		List<Spot> spotsToFill = new ArrayList<>();
+		for (int i = 0; i < numRows; i++){
+			for (int j = 0; j < numCols; j++){
+				if (grid[i][j] == 0) {
+					Spot currSpot = new Spot(i, j);
+					spotsToFill.add(currSpot);
+				}
+			}
+		}
+		spotsToFill.sort(Spot::compareTo);
+		long startTime = System.currentTimeMillis();
+		numSolutions(spotsToFill, 0);
+		elapsedTime = System.currentTimeMillis() - startTime;
+		return solNum;
+	}
+
+	// builds string with given 2D int array
+	private String convertGridToString(int[][] a){
+		StringBuilder res = new StringBuilder();
+		for (int i = 0; i < numRows; i++){
+			for(int j = 0; j < numCols; j++){
+				char ch = (char)(a[i][j] + '0');
+				res.append(ch + " ");
+			}
+			res.append("\n");
+		}
+		return res.toString();
 	}
 	
 	public String getSolutionText() {
-		return ""; // YOUR CODE HERE
+		return convertGridToString(firstSolution);
+	}
+
+	@Override
+	public String toString(){
+		return convertGridToString(grid);
 	}
 	
 	public long getElapsed() {
-		return 0; // YOUR CODE HERE
+		return elapsedTime;
 	}
 
 }
